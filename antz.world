@@ -1,0 +1,19 @@
+<?xml version='1.0'?>
+<sdf version='1.4'>
+  <world name='antz_world'>
+  	<physics type='ode'>
+  		<max_step_size>0.05</max_step_size>
+  		<real_time_update_rate>200</real_time_update_rate>
+  	</physics>
+  	<scene>
+  		<sky/>
+  	</scene>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <plugin name='factory' filename='/Users/zxing/Dropbox/Gazebo/build/libfactory.dylib'/>
+  </world>
+</sdf>

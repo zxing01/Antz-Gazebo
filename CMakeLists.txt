@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+
+find_package(Protobuf REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
+
+include (FindPkgConfig)
+if (PKG_CONFIG_FOUND)
+  pkg_check_modules(GAZEBO gazebo)
+endif()
+include_directories(${GAZEBO_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIRS})
+link_directories(${GAZEBO_LIBRARY_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
+
+add_library(antz SHARED AntzPlugin.cc)
+target_link_libraries(antz ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES})
+add_library(factory SHARED FactoryPlugin.cc)
+target_link_libraries(factory ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES})
+add_library(colorful SHARED ColorfulPlugin.cc)
+target_link_libraries(colorful ${GAZEBO_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARIES})
