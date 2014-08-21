@@ -59,15 +59,18 @@ void Antz::Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/)
 void Antz::PublishColorful()
 {
     msgs::Vector2d msg;
-    if (_isBeacon) {
+    if (_isBeacon)
+    {
         msg.set_x(_foodCardinal);
         msg.set_y(_nestCardinal);
     }
-    else if (!_toNest) {
+    else if (!_toNest)
+    {
         msg.set_x(-1);
         msg.set_y(-1);
     }
-    else {
+    else
+    {
         msg.set_x(-2);
         msg.set_y(-2);
     }
@@ -113,7 +116,8 @@ int Antz::RandomTarget(int minFoodCardinal, int minNestCardinal)
         return _lastTarget = ANTZ_COUNT;
     
     std::vector<int> candidates;
-    for (int i = 0; i < ANTZ_COUNT; ++i) {
+    for (int i = 0; i < ANTZ_COUNT; ++i)
+    {
         if (i == _id || !ANTZ(i, 0) || ANTZ(_id, 2)->Distance(*ANTZ(i, 2)) > COMM_RANGE)
             continue;
         
@@ -134,17 +138,20 @@ double Antz::AngleFacing(double x, double y)
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Walker(const common::UpdateInfo &info, int signalCount, int target)
 {
-    if (signalCount < SIGN_THR) {
+    if (signalCount < SIGN_THR)
+    {
         _isBeacon = true;
         _lastActiveTime = info.simTime.sec;
     }
-    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE) {
+    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE)
+    {
         double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
         Turn(direction);
         _exploreStartTime = info.simTime.sec;
         _shouldExplore = true;
     }
-    else {
+    else
+    {
         Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
         if (!DetectObstacle(info, target))
             Move();
@@ -166,16 +173,19 @@ void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSigna
     
     if (isActive)
         _lastActiveTime = info.simTime.sec;
-    else if (_foodCardinal > 0 && _nestCardinal > 0 && info.simTime.sec - _lastActiveTime > WAIT_THR) { // inactive
+    else if (_foodCardinal > 0 && _nestCardinal > 0 && info.simTime.sec - _lastActiveTime > WAIT_THR) // inactive
+    {
         Revive();
         StartRetrieve(info);
     }
     
-    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) { // lost beacons
+    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) // lost beacons
+    {
         Revive();
         StartRetrieve(info);
     }
-    else if (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform()) { // possible redundancy
+    else if (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform()) // possible redundancy
+    {
         Revive();
         StartExplore(info);
     }
@@ -185,20 +195,23 @@ void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSigna
 void Antz::Explore(const common::UpdateInfo &info, int target)
 {
     double distance = ANTZ(_id, 2)->Distance(_toNest ? _nestPos : _foodPos);
-    if (distance <= AVOID_RANGE) {
+    if (distance <= AVOID_RANGE)
+    {
         StopExplore();
         StopRetrieve();
         if (_toNest)
             ++_foodReturned;
         _toNest = !_toNest;
     }
-    else if (distance <= TARGET_RANGE) {
+    else if (distance <= TARGET_RANGE)
+    {
         math::Vector3 &pos = _toNest? _nestPos : _foodPos;
         Turn(AngleFacing(pos.x, pos.y));
         if (!DetectObstacle(info, target))
             Move();
     }
-    else if (info.simTime.sec - _exploreStartTime <= EXPLORE_TIME) {
+    else if (info.simTime.sec - _exploreStartTime <= EXPLORE_TIME)
+    {
         if (!DetectObstacle(info, target))
             Move();
     }
@@ -211,13 +224,15 @@ void Antz::Retrieve(const common::UpdateInfo &info, int target)
 {
     if (info.simTime.sec - _retrieveStartTime > RETRIEVE_TIME)
         StopRetrieve();
-    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE) {
+    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE)
+    {
         double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
         Turn(direction);
         _exploreStartTime = info.simTime.sec;
         _shouldExplore = true;
     }
-    else {
+    else
+    {
         Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
         if (!DetectObstacle(info, target))
             Move();
@@ -227,7 +242,8 @@ void Antz::Retrieve(const common::UpdateInfo &info, int target)
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Avoid(const common::UpdateInfo &info, int target)
 {
-    if (info.simTime.sec - _avoidStartTime <= AVOID_TIME) {
+    if (info.simTime.sec - _avoidStartTime <= AVOID_TIME)
+    {
         if (!DetectObstacle(info, target))
             Move();
     }
@@ -286,7 +302,8 @@ bool Antz::DetectObstacle(const common::UpdateInfo &info, int target)
     math::Vector3 pt2(pt1.x + AVOID_RANGE * cos(yaw), pt1.y + AVOID_RANGE * sin(yaw), pt1.z);
     double limit = WORLD_LEN / 2;
     
-    if (pt2.x >= limit || pt2.x <= -limit || pt2.y >= limit || pt2.y <= -limit) {
+    if (pt2.x >= limit || pt2.x <= -limit || pt2.y >= limit || pt2.y <= -limit)
+    {
         yaw += math::Rand::GetDblUniform(0, AVOID_ANGLE);
         Turn(yaw);
         _avoidStartTime = info.simTime.sec;
@@ -294,19 +311,22 @@ bool Antz::DetectObstacle(const common::UpdateInfo &info, int target)
         return true;
     }
     
-    for (int i = 0; i < ANTZ_COUNT; ++i) {
+    for (int i = 0; i < ANTZ_COUNT; ++i)
+    {
         if (i == _id || !ANTZ(i, 0) || (!_shouldExplore && !_shouldAvoid && !_shouldRetrieve && i == target))
             continue;
         
         double distance = ANTZ(_id, 2)->Distance(*ANTZ(i, 2));
         
-        if (distance <= AVOID_RANGE) {
+        if (distance <= AVOID_RANGE)
+        {
             //math::Vector3 pt0(*ANTZ(i, 2));
             //double distToRoute = pt0.GetDistToLine(pt1, pt2);
             double angle = AngleFacing(ANTZ(i, 2)->x, ANTZ(i, 2)->y); // [-pi/2, pi/2]
             //std::cout << "  distToRoute(" << i << ") = " << distToRoute << " yaw = " << yaw << " angle = " << angle << "\n";
             double delta = angle - yaw;
-            if ((delta > 0 && delta < M_PI/2) || (delta < 0 && delta > -M_PI/2) || (delta < 2*M_PI && delta > 3*M_PI/2) || (delta > -2*M_PI && delta < -3*M_PI/2)) {
+            if ((delta > 0 && delta < M_PI/2) || (delta < 0 && delta > -M_PI/2) || (delta < 2*M_PI && delta > 3*M_PI/2) || (delta > -2*M_PI && delta < -3*M_PI/2))
+            {
                 yaw += math::Rand::GetDblUniform(0, AVOID_ANGLE);
                 Turn(yaw);
                 _avoidStartTime = info.simTime.sec;
@@ -338,7 +358,8 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info)
     int target = ANTZ_COUNT;
     bool isActive = false;
     
-    for (int i = 0; i < ANTZ_COUNT; ++i) {
+    for (int i = 0; i < ANTZ_COUNT; ++i)
+    {
         if (i == _id || !ANTZ(i, 0))
             continue;
         
@@ -346,7 +367,8 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info)
         
         if (distance > COMM_RANGE)
             continue;
-        else if (*ANTZ(i, 0) >= 0) {
+        else if (*ANTZ(i, 0) >= 0 || *ANTZ(i, 1) >= 0)
+        {
             ++signalCount;
             if (*ANTZ(i, 0) == _foodCardinal && *ANTZ(i, 1) == _nestCardinal)
                 ++sameSignalCount;
@@ -364,31 +386,36 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info)
     std::cout << _model->GetName() << " -- ";
 #endif
     
-    if (_isBeacon) {
+    if (_isBeacon)
+    {
 #ifdef DEBUG
         std::cout << "Beacon\n";
 #endif
         Beacon(info, signalCount, sameSignalCount, minFoodCardinal, minNestCardinal, isActive);
     }
-    else if (_shouldAvoid) {
+    else if (_shouldAvoid)
+    {
 #ifdef DEBUG
         std::cout << "Avoid\n";
 #endif
         Avoid(info, target);
     }
-    else if (_shouldExplore) {
+    else if (_shouldExplore)
+    {
 #ifdef DEBUG
         std::cout << "Explore\n";
 #endif
         Explore(info, target);
     }
-    else if (_shouldRetrieve) {
+    else if (_shouldRetrieve)
+    {
 #ifdef DEBUG
         std::cout << "Retrieve\n";
 #endif
         Retrieve(info, target);
     }
-    else {
+    else
+    {
 #ifdef DEBUG
         std::cout << "Walker\n";
 #endif

@@ -27,14 +27,17 @@ void Colorful::MsgCallback(ConstVector2dPtr &msg)
     double x = msg->x();
     double y = msg->y();
     common::Color color;
-    if (x == -1) {
+    if (x == -1)
+    {
         color.r = 1;
     }
-    else if (x == -2) {
+    else if (x == -2)
+    {
         color.r = 1;
         color.g = 1;
     }
-    else if (x >= 0) {
+    else if (x >= 0)
+    {
         color.g = 1 - std::pow(0.75, y + 1);
         color.b = 1 - std::pow(0.75, x + 1);
     }

@@ -139,11 +139,13 @@ void Factory::Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/)
 /////////////////////////////////////////////////
 void Factory::OnUpdate(const common::UpdateInfo &_info)
 {
-    if (count >= ANTZ_COUNT) {
+    if (count >= ANTZ_COUNT)
+    {
         //this->updateConnection = NULL;
         return;
     }
-    else if (this->count == 0 || _info.simTime.sec - this->lastTime >= SPAWN_INTERVAL) {
+    else if (this->count == 0 || _info.simTime.sec - this->lastTime >= SPAWN_INTERVAL)
+    {
         this->lastTime = _info.simTime.sec;
         
         msgs::Factory msg;
