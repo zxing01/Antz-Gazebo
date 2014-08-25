@@ -8,10 +8,8 @@
 #include <gazebo/msgs/msgs.hh>
 #include "Antz.hh"
 
-namespace gazebo
-{
-    class Antz : public ModelPlugin
-    {
+namespace gazebo {
+    class Antz : public ModelPlugin {
     public:
         Antz();
         void Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/);

@@ -6,10 +6,8 @@
 #include "gazebo/gazebo.hh"
 #include "Antz.hh"
 
-namespace gazebo
-{
-    class Factory : public WorldPlugin
-    {
+namespace gazebo {
+    class Factory : public WorldPlugin {
     public:
         void Load(physics::WorldPtr _parent, sdf::ElementPtr /*_sdf*/);
         void OnUpdate(const common::UpdateInfo &_info);

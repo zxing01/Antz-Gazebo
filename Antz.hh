@@ -4,15 +4,15 @@
 
 #define ANTZ_LEN					0.2 // meter(s)
 #define ANTZ_HGT					0.1 // meter(s)
-#define WORLD_LEN					3.5 // (50 * ANTZ_LEN)
+#define WORLD_LEN					(50 * ANTZ_LEN)
 #define NEST_X						(-0.3 * WORLD_LEN)
 #define NEST_Y						0
 #define FOOD_X						(0.3 * WORLD_LEN)
 #define FOOD_Y						0
 
-#define ANTZ_COUNT					10
+#define ANTZ_COUNT					50
 #define SPAWN_INTERVAL				2 // sec(s)
-#define COMM_RANGE					(5 * ANTZ_LEN)
+#define COMM_RANGE					(10 * ANTZ_LEN)
 #define SPEED						ANTZ_LEN
 #define CHANGE_PROB					0.03
 #define EXPLORE_TIME				2 // sec(s) ("step count")

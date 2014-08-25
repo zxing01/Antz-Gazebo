@@ -9,10 +9,8 @@
 #include <gazebo/msgs/msgs.hh>
 #include "Antz.hh"
 
-namespace gazebo
-{
-    class Colorful : public VisualPlugin
-    {
+namespace gazebo {
+    class Colorful : public VisualPlugin {
     public:
         void Load(rendering::VisualPtr _parent, sdf::ElementPtr /*_sdf*/);
         // Called by the world update start event
