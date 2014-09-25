@@ -71,10 +71,10 @@ void Antz::PublishColorful() {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::Move() {
+void Antz::Move(double speedRatio) {
     math::Quaternion orientation = _model->GetWorldPose().rot;
     double yaw = orientation.GetYaw();
-    math::Vector3 speed(SPEED * cos(yaw), SPEED * sin(yaw), 0);
+    math::Vector3 speed(SPEED * speedRatio * cos(yaw), SPEED * speedRatio * sin(yaw), 0);
     _model->SetLinearVel(speed);
 }
 
@@ -142,7 +142,7 @@ void Antz::Walker(const common::UpdateInfo &info, int signalCount, int target) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, bool isActive) {
+void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, int minFoodSource, int minNestSource, bool isActive) {
     if (ANTZ(_id, 2)->Distance(_foodPos) <= TARGET_RANGE)
         _foodCardinal = 0;
     else
@@ -152,22 +152,51 @@ void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSigna
         _nestCardinal = 0;
     else
         _nestCardinal = minNestCardinal == ANTZ_COUNT ? ANTZ_COUNT : minNestCardinal + 1;
-    
+
+    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) { // lost beacons
+        Revive();
+        StartRetrieve(info);
+        return;
+    }
+    else if (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform()) { // possible redundancy
+        Revive();
+        StartExplore(info);
+        return;
+    }
+/*
     if (isActive)
         _lastActiveTime = info.simTime.sec;
     else if (_foodCardinal > 0 && _nestCardinal > 0 && info.simTime.sec - _lastActiveTime > WAIT_THR) { // inactive
         Revive();
         StartRetrieve(info);
+        return;
     }
-    
-    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) { // lost beacons
-        Revive();
-        StartRetrieve(info);
-    }
-    else if (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform()) { // possible redundancy
-        Revive();
-        StartExplore(info);
-    }
+*/
+    // beacon location optimization
+    /*
+    if (_foodCardinal > 0 && _nestCardinal > 0 && minFoodSource != ANTZ_COUNT && minNestSource != ANTZ_COUNT) {
+        double angle1 = AngleFacing(ANTZ(minFoodSource, 2)->x, ANTZ(minFoodSource, 2)->y);
+        double angle2 = AngleFacing(ANTZ(minNestSource, 2)->x, ANTZ(minNestSource, 2)->y);
+        if (angle1 < 0)
+            angle1 = 2 * M_PI + angle1;
+        if (angle2 < 0)
+            angle2 = 2 * M_PI + angle2;
+        
+        if (angle1 > angle2) {
+            double delta = angle1 - angle2;
+            if (delta < M_PI * 0.95 || delta > M_PI * 1.05) {
+                Turn(angle2 + (angle1 - angle2) / 2);
+                Move(0.2); // beacons don't avoid obstacle, but move slowly
+            }
+        }
+        else {
+            double delta = angle2 - angle1;
+            if (delta < M_PI * 0.95 || delta > M_PI * 1.05) {
+                Turn(angle1 + (angle2 - angle1) / 2);
+                Move(0.2);
+            }
+        }
+    } */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -314,6 +343,8 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
     int sameSignalCount = 0;
     int minFoodCardinal = ANTZ_COUNT;
     int minNestCardinal = ANTZ_COUNT;
+    int minFoodSource = ANTZ_COUNT;
+    int minNestSource = ANTZ_COUNT;
     int target = ANTZ_COUNT;
     bool isActive = false;
     
@@ -329,8 +360,18 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
             ++signalCount;
             if (*ANTZ(i, 0) == _foodCardinal && *ANTZ(i, 1) == _nestCardinal)
                 ++sameSignalCount;
-            minFoodCardinal = *ANTZ(i, 0) < minFoodCardinal ? *ANTZ(i, 0) : minFoodCardinal;
-            minNestCardinal = *ANTZ(i, 1) < minNestCardinal ? *ANTZ(i, 1) : minNestCardinal;
+            
+            if (*ANTZ(i, 0) < minFoodCardinal) {
+                minFoodCardinal = *ANTZ(i, 0);
+                minFoodSource = i;
+            }
+            
+            if (*ANTZ(i, 1) < minNestCardinal) {
+                minNestCardinal = *ANTZ(i, 1);
+                minNestSource = i;
+            }
+            //minFoodCardinal = *ANTZ(i, 0) < minFoodCardinal ? *ANTZ(i, 0) : minFoodCardinal;
+            //minNestCardinal = *ANTZ(i, 1) < minNestCardinal ? *ANTZ(i, 1) : minNestCardinal;
         }
         else if (*ANTZ(i, 0) == -1)
             isActive = true;
@@ -347,7 +388,7 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
 #ifdef DEBUG
         std::cout << "Beacon\n";
 #endif
-        Beacon(info, signalCount, sameSignalCount, minFoodCardinal, minNestCardinal, isActive);
+        Beacon(info, signalCount, sameSignalCount, minFoodCardinal, minNestCardinal, minFoodSource, minNestSource, isActive);
     }
     else if (_shouldAvoid) {
 #ifdef DEBUG

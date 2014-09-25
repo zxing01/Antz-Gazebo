@@ -10,12 +10,12 @@
 #define FOOD_X						(0.3 * WORLD_LEN)
 #define FOOD_Y						0
 
-#define ANTZ_COUNT					50
+#define ANTZ_COUNT					70
 #define SPAWN_INTERVAL				2 // sec(s)
 #define COMM_RANGE					(10 * ANTZ_LEN)
 #define SPEED						ANTZ_LEN
-#define CHANGE_PROB					0.03
-#define EXPLORE_TIME				2 // sec(s) ("step count")
+#define CHANGE_PROB					0.01
+#define EXPLORE_TIME				4 // sec(s) ("step count")
 #define RETRIEVE_TIME				30 // sec(s)
 #define AVOID_TIME					0.5 // sec(s)
 #define AVOID_ANGLE					(M_PI * 0.25) // radians

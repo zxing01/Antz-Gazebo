@@ -15,7 +15,7 @@ namespace gazebo {
         void Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/);
         void OnWorldUpdate(const common::UpdateInfo &info);
     private:
-        void Move();
+        void Move(double speedRatio = 1);
         void Stop();
         void Turn(double direction);
         void PublishColorful();
@@ -23,7 +23,7 @@ namespace gazebo {
         double AngleFacing(double x, double y);
         
         void Walker(const common::UpdateInfo &info, int signalCount, int target);
-        void Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, bool isActive);
+        void Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, int minFoodSource, int minNestSource, bool isActive);
         void Explore(const common::UpdateInfo &info, int target);
         void Retrieve(const common::UpdateInfo &info, int target);
         void Avoid(const common::UpdateInfo &info, int target);
