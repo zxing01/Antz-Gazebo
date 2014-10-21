@@ -17,6 +17,7 @@ namespace gazebo {
     private:
         void Move(double speedRatio = 1);
         void Stop();
+        void TurnRandom();
         void Turn(double direction);
         void PublishColorful();
         int RandomTarget(int minFoodCardinal, int minNestCardinal);
@@ -24,26 +25,22 @@ namespace gazebo {
         
         void Walker(const common::UpdateInfo &info, int signalCount, int target);
         void Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, int minFoodSource, int minNestSource, bool isActive);
-        void Explore(const common::UpdateInfo &info, int target);
-        void Retrieve(const common::UpdateInfo &info, int target);
-        void Avoid(const common::UpdateInfo &info, int target);
+        void Explore(const common::UpdateInfo &info);
+        void Avoid(const common::UpdateInfo &info);
         void Revive();
         void StartExplore(const common::UpdateInfo &info);
         void StopExplore();
-        void StartRetrieve(const common::UpdateInfo &info);
-        void StopRetrieve();
-        bool DetectObstacle(const common::UpdateInfo &info, int target);
+        bool DetectObstacle(const common::UpdateInfo &info);
+        bool DetectTarget();
         
         bool _isBeacon;
         bool _toNest;
         bool _shouldExplore;
-        bool _shouldRetrieve;
         bool _shouldAvoid;
         int _id;
         int _foodCardinal;
         int _nestCardinal;
         int _exploreStartTime;
-        int _retrieveStartTime;
         int _avoidStartTime;
         int _lastActiveTime;
         int _lastTarget;

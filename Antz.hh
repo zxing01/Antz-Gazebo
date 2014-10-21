@@ -13,14 +13,13 @@
 #define ANTZ_COUNT					70
 #define SPAWN_INTERVAL				2 // sec(s)
 #define COMM_RANGE					(10 * ANTZ_LEN)
+#define DETECT_RANGE				(1.1 * ANTZ_LEN)
 #define SPEED						ANTZ_LEN
-#define CHANGE_PROB					0.01
+#define CHANGE_PROB					0.03
 #define EXPLORE_TIME				4 // sec(s) ("step count")
 #define RETRIEVE_TIME				30 // sec(s)
 #define AVOID_TIME					0.5 // sec(s)
 #define AVOID_ANGLE					(M_PI * 0.25) // radians
-#define AVOID_RANGE					(1.05 * ANTZ_LEN)
-#define TARGET_RANGE				(2 * ANTZ_LEN)
 
 #define SIGN_THR					3
 #define IDENT_THR					0

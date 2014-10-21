@@ -2,7 +2,7 @@
 #include <climits>
 #define ANTZ(x, y) boost::get<y>(_antz[x])
 
-#define DEBUG
+//#define DEBUG
 
 using namespace gazebo;
 GZ_REGISTER_MODEL_PLUGIN(Antz)
@@ -19,13 +19,11 @@ Antz::Antz():
 _isBeacon(false),
 _toNest(false),
 _shouldExplore(false),
-_shouldRetrieve(false),
 _shouldAvoid(false),
 _id(_antzID++),
 _foodCardinal(-1),
 _nestCardinal(-1),
 _exploreStartTime(INT_MAX),
-_retrieveStartTime(INT_MAX),
 _avoidStartTime(INT_MAX),
 _lastActiveTime(INT_MAX),
 _lastTarget(ANTZ_COUNT),
@@ -80,8 +78,16 @@ void Antz::Move(double speedRatio) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Stop() {
-    math::Vector3 speed(0, 0, 0);
-    _model->SetLinearVel(speed);
+    _model->SetLinearVel(math::Vector3(0,0,0));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void Antz::TurnRandom() {
+    double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
+    math::Pose pose = _model->GetWorldPose();
+    pose.rot.SetFromEuler(0, 0, direction);
+    _orientation.SetFromEuler(0, 0, direction); // for calibration
+    _model->SetWorldPose(pose);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -124,41 +130,37 @@ double Antz::AngleFacing(double x, double y) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Walker(const common::UpdateInfo &info, int signalCount, int target) {
-    if (signalCount < SIGN_THR) {
+    if (target != ANTZ_COUNT) { // go towards target beacon
+        Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
+        if (!DetectObstacle(info))
+            Move();
+    }
+    else if (signalCount < SIGN_THR) { // becoming beacon
         _isBeacon = true;
         _lastActiveTime = info.simTime.sec;
     }
-    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE) {
+    else { // no target beacon
         double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
         Turn(direction);
         _exploreStartTime = info.simTime.sec;
         _shouldExplore = true;
     }
-    else {
-        Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
-        if (!DetectObstacle(info, target))
-            Move();
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSignalCount, int minFoodCardinal, int minNestCardinal, int minFoodSource, int minNestSource, bool isActive) {
-    if (ANTZ(_id, 2)->Distance(_foodPos) <= TARGET_RANGE)
+    if (ANTZ(_id, 2)->Distance(_foodPos) <= DETECT_RANGE) // food within range
         _foodCardinal = 0;
     else
         _foodCardinal = minFoodCardinal == ANTZ_COUNT ? ANTZ_COUNT : minFoodCardinal + 1;
     
-    if (ANTZ(_id, 2)->Distance(_nestPos) <= TARGET_RANGE)
+    if (ANTZ(_id, 2)->Distance(_nestPos) <= DETECT_RANGE) // nest within range
         _nestCardinal = 0;
     else
         _nestCardinal = minNestCardinal == ANTZ_COUNT ? ANTZ_COUNT : minNestCardinal + 1;
 
-    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) { // lost beacons
-        Revive();
-        StartRetrieve(info);
-        return;
-    }
-    else if (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform()) { // possible redundancy
+    if ((_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) || // lost beacons
+        (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform())) { // possible redundancy
         Revive();
         StartExplore(info);
         return;
@@ -200,23 +202,9 @@ void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSigna
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::Explore(const common::UpdateInfo &info, int target) {
-    double distance = ANTZ(_id, 2)->Distance(_toNest ? _nestPos : _foodPos);
-    if (distance <= AVOID_RANGE) {
-        StopExplore();
-        StopRetrieve();
-        if (_toNest)
-            ++_foodReturned;
-        _toNest = !_toNest;
-    }
-    else if (distance <= TARGET_RANGE) {
-        math::Vector3 &pos = _toNest? _nestPos : _foodPos;
-        Turn(AngleFacing(pos.x, pos.y));
-        if (!DetectObstacle(info, target))
-            Move();
-    }
-    else if (info.simTime.sec - _exploreStartTime <= EXPLORE_TIME) {
-        if (!DetectObstacle(info, target))
+void Antz::Explore(const common::UpdateInfo &info) {
+    if (info.simTime.sec - _exploreStartTime <= EXPLORE_TIME) {
+        if (!DetectObstacle(info))
             Move();
     }
     else
@@ -224,26 +212,9 @@ void Antz::Explore(const common::UpdateInfo &info, int target) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::Retrieve(const common::UpdateInfo &info, int target) {
-    if (info.simTime.sec - _retrieveStartTime > RETRIEVE_TIME)
-        StopRetrieve();
-    else if (target == ANTZ_COUNT || ANTZ(_id, 2)->Distance(*ANTZ(target, 2)) <= AVOID_RANGE) {
-        double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
-        Turn(direction);
-        _exploreStartTime = info.simTime.sec;
-        _shouldExplore = true;
-    }
-    else {
-        Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
-        if (!DetectObstacle(info, target))
-            Move();
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-void Antz::Avoid(const common::UpdateInfo &info, int target) {
+void Antz::Avoid(const common::UpdateInfo &info) {
     if (info.simTime.sec - _avoidStartTime <= AVOID_TIME) {
-        if (!DetectObstacle(info, target))
+        if (!DetectObstacle(info))
             Move();
     }
     else
@@ -259,8 +230,7 @@ void Antz::Revive() {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::StartExplore(const common::UpdateInfo &info) {
-    double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
-    Turn(direction);
+    TurnRandom();
     _exploreStartTime = info.simTime.sec;
     _shouldExplore = true;
 }
@@ -274,27 +244,30 @@ void Antz::StopExplore() {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::StartRetrieve(const common::UpdateInfo &info) {
-    _retrieveStartTime = info.simTime.sec;
-    _shouldRetrieve = true;
+bool Antz::DetectTarget() {
+    double distance = ANTZ(_id, 2)->Distance(_toNest ? _nestPos : _foodPos);
+    if (distance <= DETECT_RANGE) {
+        if (_shouldExplore) {
+            StopExplore();
+            _isBeacon = true;
+        }
+        if (_toNest)
+            ++_foodReturned;
+        _toNest = !_toNest;
+        return true;
+    }
+    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void Antz::StopRetrieve() {
-    _lastFoodCardinal = -1;
-    _lastNestCardinal = -1;
-    _lastTarget = ANTZ_COUNT;
-    _shouldRetrieve = false;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-bool Antz::DetectObstacle(const common::UpdateInfo &info, int target) {
+bool Antz::DetectObstacle(const common::UpdateInfo &info) {
     math::Quaternion orientation = _model->GetWorldPose().rot;
     double yaw = orientation.GetYaw();
-    math::Vector3 pt1(*ANTZ(_id, 2));
-    math::Vector3 pt2(pt1.x + AVOID_RANGE * cos(yaw), pt1.y + AVOID_RANGE * sin(yaw), pt1.z);
-    double limit = WORLD_LEN / 2;
     
+    // detect world boundary
+    math::Vector3 pt1(*ANTZ(_id, 2));
+    math::Vector3 pt2(pt1.x + DETECT_RANGE * cos(yaw), pt1.y + DETECT_RANGE * sin(yaw), pt1.z);
+    double limit = WORLD_LEN / 2;
     if (pt2.x >= limit || pt2.x <= -limit || pt2.y >= limit || pt2.y <= -limit) {
         yaw += math::Rand::GetDblUniform(0, AVOID_ANGLE);
         Turn(yaw);
@@ -303,38 +276,39 @@ bool Antz::DetectObstacle(const common::UpdateInfo &info, int target) {
         return true;
     }
     
+    // detect other robots
     for (int i = 0; i < ANTZ_COUNT; ++i) {
-        if (i == _id || !ANTZ(i, 0) || (!_shouldExplore && !_shouldAvoid && !_shouldRetrieve && i == target))
+        if (i == _id || !ANTZ(i, 0))
             continue;
         
         double distance = ANTZ(_id, 2)->Distance(*ANTZ(i, 2));
+        //std::cout << " ~~~ distance to " << i << " = " << distance << std::endl;
         
-        if (distance <= AVOID_RANGE) {
-            //math::Vector3 pt0(*ANTZ(i, 2));
-            //double distToRoute = pt0.GetDistToLine(pt1, pt2);
+        if (distance <= DETECT_RANGE) {
             double angle = AngleFacing(ANTZ(i, 2)->x, ANTZ(i, 2)->y); // [-pi/2, pi/2]
-            //std::cout << "  distToRoute(" << i << ") = " << distToRoute << " yaw = " << yaw << " angle = " << angle << "\n";
             double delta = angle - yaw;
-            if ((delta > 0 && delta < M_PI/2) || (delta < 0 && delta > -M_PI/2) || (delta < 2*M_PI && delta > 3*M_PI/2) || (delta > -2*M_PI && delta < -3*M_PI/2)) {
+            //std::cout << " ~~~ distance <= DETECT_RANGE" << std::endl;
+            //std::cout << " ~~~ angle = " << (angle / M_PI) << " PI " << std::endl;
+            //std::cout << " ~~~ yaw = " << (yaw / M_PI) << " PI " << std::endl;
+            //std::cout << " ~~~ delta = " << (delta / M_PI) << " PI " << std::endl;
+            if ((delta >= 0 && delta <= M_PI/2) || (delta <= 0 && delta >= -M_PI/2) || (delta <= 2*M_PI && delta >= 3*M_PI/2) || (delta >= -2*M_PI && delta <= -3*M_PI/2)) {
+                //std::cout << " ~~~ shouldAvoid!" << std::endl;
                 yaw += math::Rand::GetDblUniform(0, AVOID_ANGLE);
                 Turn(yaw);
                 _avoidStartTime = info.simTime.sec;
                 _shouldAvoid = true;
-                //std:: cout << "  --- avoiding!\n";
                 return true;
             }
         }
     }
-    //std:: cout << "  --- NOT avoiding!\n";
     return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
+    // calibration
     PublishColorful();
     Stop();
-    
-    // for calibration
     math::Pose pose = _model->GetWorldPose();
     pose.rot = _orientation;
     _model->SetWorldPose(pose);
@@ -390,31 +364,29 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
 #endif
         Beacon(info, signalCount, sameSignalCount, minFoodCardinal, minNestCardinal, minFoodSource, minNestSource, isActive);
     }
-    else if (_shouldAvoid) {
-#ifdef DEBUG
-        std::cout << "Avoid\n";
-#endif
-        Avoid(info, target);
-    }
-    else if (_shouldExplore) {
-#ifdef DEBUG
-        std::cout << "Explore\n";
-#endif
-        Explore(info, target);
-    }
-    else if (_shouldRetrieve) {
-#ifdef DEBUG
-        std::cout << "Retrieve\n";
-#endif
-        Retrieve(info, target);
-    }
     else {
+        if (DetectTarget())
+            return;
+        
+        if (_shouldAvoid) {
 #ifdef DEBUG
-        std::cout << "Walker\n";
+            std::cout << "Avoid\n";
 #endif
-        Walker(info, signalCount, target);
+            Avoid(info);
+        }
+        else if (_shouldExplore) {
+#ifdef DEBUG
+            std::cout << "Explore\n";
+#endif
+            Explore(info);
+        }
+        else {
+#ifdef DEBUG
+            std::cout << "Walker\n";
+#endif
+            Walker(info, signalCount, target);
+        }
     }
-    
 #ifdef DEBUG
     std::cout << "  simTime = " << info.simTime.sec << "\n";
     std::cout << "  destination = " << (_toNest ? "Nest" : "Food") << "\n";
