@@ -7,6 +7,9 @@
 #include <gazebo/transport/transport.hh>
 #include <gazebo/msgs/msgs.hh>
 #include "Antz.hh"
+#include <unordered_map>
+#include <map>
+#include <vector>
 
 namespace gazebo {
     class Antz : public ModelPlugin {
@@ -52,8 +55,23 @@ namespace gazebo {
         transport::NodePtr _node;
         transport::PublisherPtr _pub;
         
+        // coordinated search
+        bool _foundFood;
+        int _frequency;
+        int _lastMinFreq;
+        std::map<int, std::vector<int> > _freqValues;
+        std::unordered_map<int, int> _lastPresenceTime;
+        
+        // congestion
+        double _maxFoodAdjCrowdFactor;
+        double _foodCrowdFactor;
+        double _foodOverallFactor;
+        double _maxNestAdjCrowdFactor;
+        double _nestCrowdFactor;
+        double _nestOverallFactor;
+        
         static int _antzID;
-        static boost::tuple<int*, int*, const math::Vector3*> _antz[ANTZ_COUNT];
+        static boost::tuple<int*, int*, const math::Vector3*, int*, double*, double*, double*, double*, double*, double*> _antz[ANTZ_COUNT];
         static math::Vector3 _nestPos;
         static math::Vector3 _foodPos;
         static unsigned long _foodReturned;

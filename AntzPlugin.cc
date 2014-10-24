@@ -9,7 +9,7 @@ GZ_REGISTER_MODEL_PLUGIN(Antz)
 
 /////////////////////////////////////////////////
 int Antz::_antzID = 0;
-boost::tuple<int*, int*, const math::Vector3*> Antz::_antz[ANTZ_COUNT];
+boost::tuple<int*, int*, const math::Vector3*, int*, double*, double*, double*, double*, double*, double*> Antz::_antz[ANTZ_COUNT];
 math::Vector3 Antz::_nestPos(NEST_X, NEST_Y, ANTZ_HGT / 2);
 math::Vector3 Antz::_foodPos(FOOD_X, FOOD_Y, ANTZ_HGT / 2);
 unsigned long Antz::_foodReturned = 0;
@@ -29,7 +29,18 @@ _lastActiveTime(INT_MAX),
 _lastTarget(ANTZ_COUNT),
 _lastFoodCardinal(-1),
 _lastNestCardinal(-1),
-_orientation(0, 0, 0) {}
+_orientation(0, 0, 0),
+
+_foundFood(false),
+_frequency(0),
+_lastMinFreq(INT_MAX),
+
+_maxFoodAdjCrowdFactor(0),
+_foodCrowdFactor(0),
+_foodOverallFactor(0),
+_maxNestAdjCrowdFactor(0),
+_nestCrowdFactor(0),
+_nestOverallFactor(0) {}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/) {
@@ -41,7 +52,7 @@ void Antz::Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/) {
     _updateConnection = event::Events::ConnectWorldUpdateBegin(boost::bind(&Antz::OnWorldUpdate, this, _1));
     
     // connect the dictionary with this antz's info
-    _antz[_id] = boost::make_tuple(&_foodCardinal, &_nestCardinal, &_model->GetWorldPose().pos);
+    _antz[_id] = boost::make_tuple(&_foodCardinal, &_nestCardinal, &_model->GetWorldPose().pos, &_frequency, &_foodCrowdFactor, &_nestCrowdFactor, &_foodOverallFactor, &_nestOverallFactor, &_maxFoodAdjCrowdFactor, &_maxNestAdjCrowdFactor);
     
     // Create our node for communication
     _node = transport::NodePtr(new gazebo::transport::Node());
@@ -130,14 +141,44 @@ double Antz::AngleFacing(double x, double y) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Antz::Walker(const common::UpdateInfo &info, int signalCount, int target) {
+    //std::cout << " walker _id = " << _id << " _freqValues.size() = " << _freqValues.size() << std::endl;
     if (target != ANTZ_COUNT) { // go towards target beacon
         Turn(AngleFacing(ANTZ(target, 2)->x, ANTZ(target, 2)->y));
-        if (!DetectObstacle(info))
-            Move();
+        if (!DetectObstacle(info)) {
+            // congestion
+            double ratio = 1;
+            if (!_toNest)
+                ratio = (*ANTZ(target, 8) >= 36 ? 0.1 : 1 - (double)*ANTZ(target, 8)/40);
+            else
+                ratio = (*ANTZ(target, 9) >= 36 ? 0.1 : 1 - (double)*ANTZ(target, 9)/40);
+            Move(ratio);
+        }
     }
     else if (signalCount < SIGN_THR) { // becoming beacon
         _isBeacon = true;
         _lastActiveTime = info.simTime.sec;
+        
+        // coordinated search
+        _lastPresenceTime.clear();
+        int count = 0;
+        int sum = 0;
+        for (std::map<int, std::vector<int> >::iterator it = _freqValues.begin(); it != _freqValues.end(); ++it) {
+            sum += it->first * it->second.size();
+            count += it->second.size();
+        }
+        _frequency = count > 1 ? sum/count : 0;
+    }
+    // coordinated search
+    else if (_freqValues.size() > 0 /*&& _freqValues.begin()->first < _lastMinFreq*/) {
+        //std::cout << " Coordinated search: Walker\n";
+        //_lastMinFreq = _freqValues.begin()->first;
+        std::vector<int> &candidates = _freqValues.begin()->second;
+        int index = candidates[math::Rand::GetIntUniform(0, candidates.size() - 1)];
+        double angle = AngleFacing(ANTZ(index, 2)->x, ANTZ(index, 2)->y);
+        double direction = math::Rand::GetDblUniform(angle - M_PI/3, angle + M_PI/3);
+        Turn(direction);
+        _exploreStartTime = info.simTime.sec + 4;
+        _shouldExplore = true;
     }
     else { // no target beacon
         double direction = math::Rand::GetDblUniform(-M_PI, M_PI);
@@ -159,12 +200,57 @@ void Antz::Beacon(const common::UpdateInfo &info, int signalCount, int sameSigna
     else
         _nestCardinal = minNestCardinal == ANTZ_COUNT ? ANTZ_COUNT : minNestCardinal + 1;
 
-    if ((_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) || // lost beacons
-        (sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform())) { // possible redundancy
+    if (_foodCardinal == ANTZ_COUNT && _nestCardinal == ANTZ_COUNT) { // lost beacons
         Revive();
         StartExplore(info);
-        return;
     }
+    // coordinated search
+    //else if (!_foundFood) {
+        //std::cout << " Coordinated search: Beacon\n";
+    //}
+    else if (sameSignalCount > IDENT_THR && _foodCardinal > 0 && _nestCardinal > 0 && CHANGE_PROB > math::Rand::GetDblUniform()) { // possible redundancy
+        Revive();
+        StartExplore(info);
+    }
+    
+    // congestion
+    _maxFoodAdjCrowdFactor = 0;
+    _maxNestAdjCrowdFactor = 0;
+    _foodCrowdFactor = 0;
+    _nestCrowdFactor = 0;
+
+    for (int i = 0; i < ANTZ_COUNT; ++i) {
+        if (i == _id || !ANTZ(i, 0))
+            continue;
+        
+        double distance = ANTZ(_id, 2)->Distance(*ANTZ(i, 2));
+        
+        if (distance > COMM_RANGE)
+            continue;
+        
+        if (*ANTZ(i, 0) >= 0 && *ANTZ(i, 1) >= 0) {
+            if (minFoodCardinal != ANTZ_COUNT && *ANTZ(i, 0) == minFoodCardinal) {
+                _maxFoodAdjCrowdFactor = *ANTZ(i, 4) > _maxFoodAdjCrowdFactor ? *ANTZ(i, 4) : _maxFoodAdjCrowdFactor;
+            }
+            
+            if (minNestCardinal != ANTZ_COUNT && *ANTZ(i, 1) == minNestCardinal) {
+                _maxNestAdjCrowdFactor = *ANTZ(i, 5) > _maxNestAdjCrowdFactor ? *ANTZ(i, 5) : _maxNestAdjCrowdFactor;
+            }
+        }
+        else {
+            _foodCrowdFactor++;
+            _nestCrowdFactor++;
+        }
+    }
+    
+    //_foodCrowdFactor = _maxFoodAdjCrowdFactor*0.8 > _foodCrowdFactor ? _maxFoodAdjCrowdFactor*0.8 : _foodCrowdFactor;
+    //_nestCrowdFactor = _maxFoodAdjCrowdFactor*0.8 > _nestCrowdFactor ? _maxFoodAdjCrowdFactor*0.8 : _foodCrowdFactor;
+    _foodOverallFactor = _foodCardinal + _foodCrowdFactor/10;
+    _nestOverallFactor = _nestCardinal + _nestCrowdFactor/10;
+    
+    //std::cout << " id=" << _id << " _maxFoodAdjCrowdFactor=" << _maxFoodAdjCrowdFactor << " _maxNestAdjCrowdFactor="
+        //<< _maxNestAdjCrowdFactor << " _foodCrowdFactor=" << _foodCrowdFactor << " _nestCrowdFactor=" << _nestCrowdFactor
+        //<< " _foodOverallFactor=" << _foodOverallFactor << " _nestOverallFactor=" << _nestOverallFactor << std::endl;
 /*
     if (isActive)
         _lastActiveTime = info.simTime.sec;
@@ -226,6 +312,12 @@ void Antz::Revive() {
     _isBeacon = false;
     _foodCardinal = -1;
     _nestCardinal = -1;
+    
+    // congestion
+    _foodCrowdFactor = 0;
+    _foodOverallFactor = 0;
+    _nestCrowdFactor = 0;
+    _nestOverallFactor = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -322,6 +414,13 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
     int target = ANTZ_COUNT;
     bool isActive = false;
     
+    // coordinated search
+    _foundFood = false;
+    
+    // congestion
+    double minFoodOverall = ANTZ_COUNT;
+    double minNestOverall = ANTZ_COUNT;
+    
     for (int i = 0; i < ANTZ_COUNT; ++i) {
         if (i == _id || !ANTZ(i, 0))
             continue;
@@ -330,7 +429,12 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
         
         if (distance > COMM_RANGE)
             continue;
-        else if (*ANTZ(i, 0) >= 0 || *ANTZ(i, 1) >= 0) {
+        
+        if (*ANTZ(i, 0) >= 0 || *ANTZ(i, 1) >= 0) {
+            // coordinated search
+            if (*ANTZ(i, 0) >= 0 && *ANTZ(i, 0) < ANTZ_COUNT)
+                _foundFood = true;
+            
             ++signalCount;
             if (*ANTZ(i, 0) == _foodCardinal && *ANTZ(i, 1) == _nestCardinal)
                 ++sameSignalCount;
@@ -346,13 +450,56 @@ void Antz::OnWorldUpdate(const common::UpdateInfo &info) {
             }
             //minFoodCardinal = *ANTZ(i, 0) < minFoodCardinal ? *ANTZ(i, 0) : minFoodCardinal;
             //minNestCardinal = *ANTZ(i, 1) < minNestCardinal ? *ANTZ(i, 1) : minNestCardinal;
+            
+            // congestion
+            if (!_isBeacon && !_toNest) {
+                if (*ANTZ(i, 6) < minFoodOverall) {
+                    target = i;
+                    minFoodOverall = *ANTZ(i, 6);
+                }
+            }
+            else if (!_isBeacon && _toNest) {
+                if (*ANTZ(i, 7) < minNestOverall) {
+                    target = i;
+                    minNestOverall = *ANTZ(i, 7);
+                }
+            }
         }
-        else if (*ANTZ(i, 0) == -1)
+        else if (*ANTZ(i, 0) == -1) {
             isActive = true;
+        }
     }
     
-    if (signalCount > 0)
-        target = RandomTarget(minFoodCardinal, minNestCardinal);
+    // congestion
+    // if (signalCount > 0)
+        // target = RandomTarget(minFoodCardinal, minNestCardinal);
+    
+    // coordinated search
+    _freqValues.clear();
+    if (!_foundFood) {
+        for (int i = 0; i < ANTZ_COUNT; ++i) {
+            if (i == _id || !ANTZ(i, 0))
+                continue;
+            
+            double distance = ANTZ(_id, 2)->Distance(*ANTZ(i, 2));
+            
+            if (distance > COMM_RANGE)
+                continue;
+            
+            //std::cout << " general _id = " << _id << " foodCardinal[" << i << "] = " << *ANTZ(i, 0) << std::endl;
+            if (*ANTZ(i, 0) >= 0) { // this is a beacon
+                _freqValues[*ANTZ(i, 3)].push_back(i);
+                //std::cout << " general _id = " << _id << " _freqValues.size() = " << _freqValues.size() << std::endl;
+            }
+            else if (_isBeacon) { // this is a walker and I'm beacon
+                if (_lastPresenceTime.count(i) == 0 || info.simTime.sec - _lastPresenceTime[i] > EXPLORE_TIME) {
+                    ++_frequency;
+                    _lastPresenceTime[i] = info.simTime.sec;
+                }
+                //std::cout << " _id = " << _id << " _frequency = " << _frequency << std::endl;
+            }
+        }
+    }
     
 #ifdef DEBUG
     std::cout << _model->GetName() << " -- ";

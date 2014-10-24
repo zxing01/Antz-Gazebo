@@ -10,7 +10,7 @@
 #define FOOD_X						(0.3 * WORLD_LEN)
 #define FOOD_Y						0
 
-#define ANTZ_COUNT					70
+#define ANTZ_COUNT					100
 #define SPAWN_INTERVAL				2 // sec(s)
 #define COMM_RANGE					(10 * ANTZ_LEN)
 #define DETECT_RANGE				(1.1 * ANTZ_LEN)
