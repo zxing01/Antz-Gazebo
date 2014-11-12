@@ -68,7 +68,7 @@ void Beacon::DoAction(const common::UpdateInfo &info) {
         else
             ANTZ(_id, close)[i] = ANTZ_COUNT;
         
-        ANTZ(_id, attractive)[i] = ANTZ(_id, close)[i] + ANTZ(_id, count)/10;
+        ANTZ(_id, attractive)[i] = ANTZ(_id, close)[i] + (double)ANTZ(_id, count)/10.0;
     }
     
     if (lost /*|| (!source && _sameSignalCount > IDENT_THR && CHANGE_PROB > math::Rand::GetDblUniform())*/) {

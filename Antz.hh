@@ -24,7 +24,7 @@
 #define AVOID_TIME					0.5 // sec(s)
 #define AVOID_ANGLE					(M_PI * 0.25) // radians
 
-#define SIGN_THR					2
+#define SIGN_THR					3
 #define IDENT_THR					0
 #define	WAIT_THR					30 // sec(s)
 
