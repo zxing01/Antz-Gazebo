@@ -15,7 +15,7 @@ namespace gazebo {
         void Load(rendering::VisualPtr _parent, sdf::ElementPtr /*_sdf*/);
         // Called by the world update start event
         void MsgCallback(ConstVector2dPtr &msg);
-        
+        //void OnUpdate();
     private:
         // Pointer to the model
         rendering::VisualPtr _visual;
