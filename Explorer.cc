@@ -21,12 +21,12 @@ Explorer *Explorer::Instance(AntzPlugin *plugin) {
 void Explorer::Reset(double direction, const common::UpdateInfo &info) {
     Turn(direction);
     _startTime = info.simTime.sec;
-    ANTZ(_plugin->ID(), close).assign(TARGET_COUNT, -1);
+    ANTZ(_id, close).assign(TARGET_COUNT, -1);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 bool Explorer::DetectTarget(const common::UpdateInfo &info) {
-    double distance = ANTZ(_plugin->ID(), position)->Distance(AntzInfo::targetPos[_plugin->Target()]);
+    double distance = ANTZ(_id, position)->Distance(AntzInfo::targetPos[ANTZ(_id, target)]);
     if (distance <= DETECT_RANGE) {
         Beacon *beacon = Beacon::Instance(_plugin);
         SetState(beacon);
@@ -37,7 +37,6 @@ bool Explorer::DetectTarget(const common::UpdateInfo &info) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void Explorer::DoInitialize(const common::UpdateInfo &info) {
-    std::cout << " #" << _plugin->ID() << " is explorer\n";
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

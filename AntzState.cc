@@ -4,7 +4,8 @@ using namespace gazebo;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 AntzState::AntzState(AntzPlugin *plugin):
-_plugin(plugin) {}
+_plugin(plugin),
+_id(plugin->_id) {}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void AntzState::Update(const common::UpdateInfo &info) {
@@ -22,7 +23,7 @@ void AntzState::Update(const common::UpdateInfo &info) {
     // avoid world boundary
     _obstacle = false;
     double yaw = _plugin->_orientation.GetYaw();
-    math::Vector3 pt1(*AntzInfo::antz[_plugin->_id].position);
+    math::Vector3 pt1(*ANTZ(_id, position));
     math::Vector3 pt2(pt1.x + DETECT_RANGE * cos(yaw), pt1.y + DETECT_RANGE * sin(yaw), pt1.z);
     double limit = WORLD_LEN / 2;
     if (pt2.x >= limit || pt2.x <= -limit || pt2.y >= limit || pt2.y <= -limit) {
@@ -32,9 +33,9 @@ void AntzState::Update(const common::UpdateInfo &info) {
     }
     
     for (int i = 0; i < AntzInfo::antz.size(); ++i) {
-        if (i == _plugin->_id)
+        if (i == _id)
             continue;
-        double distance = ANTZ(_plugin->_id, position)->Distance(*ANTZ(i, position));
+        double distance = ANTZ(_id, position)->Distance(*ANTZ(i, position));
         if (distance > COMM_RANGE)
             continue;
         
@@ -53,8 +54,6 @@ void AntzState::Update(const common::UpdateInfo &info) {
         DoGetInfo(i, info); // primitive operation
     }
     DoAction(info); // primitive operation
-    
-    //std::cout << " ID = " << _plugin->_id << " close[0] = " << ANTZ(_plugin->_id, close)[0] << " close[1] = " << ANTZ(_plugin->_id, close)[1] << "\n";
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +62,7 @@ void AntzState::SetState(AntzState *nextState) {
         _plugin->_state = nextState;
     }
     else
-        std::cout << " Invalid state transition for plugin#" << _plugin->_id << std::endl;
+        std::cout << " Invalid state transition for antz#" << _id << "\n";
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +97,7 @@ void AntzState::Turn(double direction) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 double AntzState::AngleFacing(double x, double y) {
-    double deltaX = x - AntzInfo::antz[_plugin->_id].position->x;
-    double deltaY = y - AntzInfo::antz[_plugin->_id].position->y;
+    double deltaX = x - ANTZ(_id, position)->x;
+    double deltaY = y - ANTZ(_id, position)->y;
     return atan2(deltaY, deltaX);
 }

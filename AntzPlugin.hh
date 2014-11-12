@@ -16,8 +16,6 @@ namespace gazebo {
         AntzPlugin();
         void Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/);
         void OnWorldUpdate(const common::UpdateInfo &info);
-        int ID() const { return _id; }
-        int &Target() { return _target; }
     private:
         void PublishColorful();
         
@@ -27,7 +25,6 @@ namespace gazebo {
         transport::PublisherPtr _pub;
 
         int _id;
-        int _target; // 0 - nest, 1 - food
         math::Quaternion _orientation; // store the set orientation for calibration etc. (in case of collision)
         AntzState *_state;
     };

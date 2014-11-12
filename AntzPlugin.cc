@@ -7,9 +7,7 @@ using namespace gazebo;
 GZ_REGISTER_MODEL_PLUGIN(AntzPlugin)
 
 //////////////////////////////////////////////////////////////////////////////////////////
-AntzPlugin::AntzPlugin():
-_target(1),
-_state(Walker::Instance(this)) {}
+AntzPlugin::AntzPlugin() {}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void AntzPlugin::Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/) {
@@ -29,20 +27,22 @@ void AntzPlugin::Load(physics::ModelPtr parent, sdf::ElementPtr /*sdf*/) {
     _node->Init();
     // Publish to a Gazebo topic
     _pub = _node->Advertise<msgs::Vector2d>("~/" + _model->GetName() + "/colorful");
+    
+    _state = Walker::Instance(this);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void AntzPlugin::PublishColorful() {
     msgs::Vector2d msg;
-    if (AntzInfo::antz[_id].close[0] >= 0) {
-        msg.set_x(AntzInfo::antz[_id].close[1]);
-        msg.set_y(AntzInfo::antz[_id].close[0]);
+    if (ANTZ(_id, close)[0] >= 0) {
+        msg.set_x(ANTZ(_id, close)[1]);
+        msg.set_y(ANTZ(_id, close)[0]);
     }
-    else if (_target == 1) { // food
+    else if (ANTZ(_id, target) == 1) { // food
         msg.set_x(-1);
         msg.set_y(-1);
     }
-    else {
+    else if (ANTZ(_id, target) == 0) { // nest
         msg.set_x(-2);
         msg.set_y(-2);
     }

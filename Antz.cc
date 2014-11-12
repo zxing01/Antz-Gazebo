@@ -11,6 +11,7 @@ const math::Vector3 AntzInfo::targetPos[TARGET_COUNT] = {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 AntzInfo::AntzInfo(const math::Vector3* pos):
+target(1),
 frequency(0),
 count(0),
 close(TARGET_COUNT, -1),

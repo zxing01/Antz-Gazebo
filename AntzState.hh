@@ -31,6 +31,7 @@ namespace gazebo {
         double AngleFacing(double x, double y);
 
         AntzPlugin *_plugin;
+        int _id;
         bool _obstacle;
     };
 }
