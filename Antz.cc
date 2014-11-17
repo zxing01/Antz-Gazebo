@@ -1,4 +1,5 @@
 #include "Antz.hh"
+#include <limits>
 
 using namespace gazebo;
 

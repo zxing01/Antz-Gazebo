@@ -1,7 +1,6 @@
 #include "AntzPlugin.hh"
 #include "AntzState.hh"
 #include "Walker.hh"
-#include <limits>
 
 using namespace gazebo;
 GZ_REGISTER_MODEL_PLUGIN(AntzPlugin)
